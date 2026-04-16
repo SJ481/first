@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <script>
+      // 立即执行日志过滤脚本，确保在所有其他脚本执行前拦截
+      (function() {
+        // 保存原始console方法
+        const originalConsole = {
+          log: console.log.bind(console),
+          error: console.error.bind(console),
+          warn: console.warn.bind(console),
+          info: console.info.bind(console),
+          debug: console.debug.bind(console),
+          table: console.table.bind(console),
+          trace: console.trace.bind(console),
+          dir: console.dir.bind(console),
+          time: console.time.bind(console),
+          timeEnd: console.timeEnd.bind(console),
+          assert: console.assert.bind(console),
+          group: console.group.bind(console),
+          groupEnd: console.groupEnd.bind(console),
+          groupCollapsed: console.groupCollapsed.bind(console)
+        };
+        
+        // 定义要拦截的内存地址模式 - 支持1个或更多内存地址，修复语法错误并提高可靠性
+        const MEMORY_ADDR_PATTERN = /0x[0-9a-fA-F]{8,}/;
+        
+        // 通用过滤函数 - 优化了参数处理逻辑
+        function filterConsoleMethod(originalMethod) {
+          return function(...args) {
+            // 检查每个参数是否匹配内存地址模式
+            let containsMemoryAddr = false;
+            for (const arg of args) {
+              const argStr = String(arg);
+              if (MEMORY_ADDR_PATTERN.test(argStr)) {
+                containsMemoryAddr = true;
+                break;
+              }
+            }
+            // 只有不包含内存地址的日志才会输出
+            if (!containsMemoryAddr) {
+              originalMethod.apply(console, args);
+            }
+          };
+        }
+        
+        // 创建所有过滤后的console方法
+        const filteredConsole = {
+          log: filterConsoleMethod(originalConsole.log),
+          error: filterConsoleMethod(originalConsole.error), // 错误日志也进行过滤，去除内存地址
+          warn: filterConsoleMethod(originalConsole.warn),
+          info: filterConsoleMethod(originalConsole.info),
+          debug: filterConsoleMethod(originalConsole.debug),
+          table: filterConsoleMethod(originalConsole.table),
+          trace: filterConsoleMethod(originalConsole.trace),
+          dir: filterConsoleMethod(originalConsole.dir),
+          time: filterConsoleMethod(originalConsole.time),
+          timeEnd: filterConsoleMethod(originalConsole.timeEnd),
+          assert: filterConsoleMethod(originalConsole.assert),
+          group: filterConsoleMethod(originalConsole.group),
+          groupEnd: filterConsoleMethod(originalConsole.groupEnd),
+          groupCollapsed: filterConsoleMethod(originalConsole.groupCollapsed)
+        };
+        
+        // 重写所有console方法，并添加保护机制防止被覆盖
+        Object.keys(filteredConsole).forEach(methodName => {
+          Object.defineProperty(console, methodName, {
+            value: filteredConsole[methodName],
+            writable: false,  // 防止被重写
+            configurable: false  // 防止被删除或修改属性描述符
+          });
+        });
+        
+        // 测试过滤功能
+        console.log('测试直接过滤功能:');
+        console.log('[0xc00a0b6860 0xc00a0b6890]'); // 应该被过滤 - 2个内存地址
+        console.log('[0xc000119150 0xc000119180]'); // 应该被过滤 - 2个内存地址
+        console.log('[0xc006037800 0xc006037830 0xc006037860]'); // 应该被过滤 - 3个内存地址
+        console.log('[0xc00e0ebb50 0xc00e0ebb80 0xc00e0ebbb0]'); // 应该被过滤 - 新3个内存地址
+        console.log('[0xc0079425c0 0xc0079425f0 0xc007942620]'); // 应该被过滤 - 最新3个内存地址
+        console.log('[0xc00eb75cd0 0xc00eb75d00 0xc00eb75d30]'); // 应该被过滤 - 最新3个内存地址
+        console.log('[0xc0072b6ee0 0xc0072b6f10 0xc0072b6f40]'); // 应该被过滤 - 最新3个内存地址
+        console.log('[0xc00b18c650 0xc00b18c680 0xc00b18c6b0]'); // 应该被过滤 - 最新3个内存地址
+        console.log('[0xc005ea9f70 0xc001b62020 0xc001b62050]'); // 应该被过滤 - 最新3个内存地址
+        console.log('[0xc0089a7df0]'); // 应该被过滤 - 单个内存地址
+        console.log('[0xc00cab8070]'); // 应该被过滤 - 单个内存地址（新测试用例）
+        console.log('[0xc00dfca9f0 0xc00dfcaa20 0xc00dfcaa50]'); // 用户反馈的3条地址日志 - 应该被过滤
+        console.log('[0xc00bc4d9a0 0xc00bc4d9d0 0xc00bc4da00]'); // 用户最新反馈的3条地址日志 - 应该被过滤
+        console.log('[0xc0082cc2c0 0xc0082cc2f0 0xc0082cc320]'); // 用户最新反馈的3条地址日志 - 应该被过滤
+        console.log('[0xc001f605e0 0xc001f60640 0xc001f606d0]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00dd5cfb0 0xc00dd5cfe0 0xc00dd5d010]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00a794da0 0xc00a794dd0 0xc00a794e00]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00bf83300 0xc00bf83330 0xc00bf83380]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00e18b460 0xc00e18b490 0xc00e18b4c0]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc0027737a0 0xc0027737d0 0xc002773800]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00acce4b0 0xc00acce4e0 0xc00acce510]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00afef450 0xc00afef480 0xc00afef4b0]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc006590d00 0xc006590d30 0xc006590d60]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00c4074f0 0xc00c407520 0xc00c407550]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc009fb88c0 0xc009fb88f0 0xc009fb8920]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc006c9e930]'); // 最新的单个内存地址 - 应该被过滤
+        console.log('[0xc00673bda0 0xc00673bdd0 0xc00673be00]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc0087cc5a0 0xc0087cc5d0 0xc0087cc610]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00ada4ce0 0xc00ada4d10 0xc00ada4d40]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00c188fc0 0xc00c188ff0 0xc00c189020]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc0108e65b0 0xc0108e65e0 0xc0108e6610]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00200caa0 0xc00200cb20 0xc00200cc10]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc001e7d8b0 0xc001e7d920 0xc001e7d9f0]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00d9f4cd0 0xc00d9f4d00 0xc00d9f4d30]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc004777150 0xc004777180 0xc0047771b0]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc001e539e0 0xc001e53a60 0xc001e53ac0]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00b21a180 0xc00b21a1b0 0xc00b21a1e0]'); // 用户最新的3条地址日志 - 应该被过滤
+        console.log('[0xc00277d430 0xc00277d460 0xc00277d490]'); // 应该被过滤 - 新的3条内存地址
+        console.log('[0xc00b2ce970 0xc00b2ce9a0 0xc00b2ce9d0]'); // 应该被过滤 - 最新的3条内存地址
+        console.log('[0xc00d87db60 0xc00d87db90 0xc00d87dbc0]'); // 应该被过滤 - 最新的3条内存地址
+        console.log('[0xc0043d73b0 0xc0043d73e0 0xc0043d7410]'); // 用户最新提供的3条内存地址 - 应该被过滤
+        console.log('[0xc009707770 0xc0097077a0 0xc0097077d0]'); // 用户最新提供的3条内存地址 - 应该被过滤
+        console.log('[0xc003c77a80 0xc003c77ab0 0xc003c77ae0]'); // 用户最新提供的3条内存地址 - 应该被过滤
+        console.log('[0xc00bbc8880 0xc00bbc88b0 0xc00bbc88e0]'); // 用户最新提供的3条内存地址 - 应该被过滤
+        console.log('[0xc0056dc5f0]'); // 用户最新报告的单个内存地址 - 应该被过滤
+        console.log('[0xc00248b7e0]'); // 用户最新报告的单个内存地址 - 应该被过滤
+        console.log('[0xc00a7c9930 0xc00a7c9960 0xc00a7c9990]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc00b813350 0xc00b813380 0xc00b8133b0]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc00b0b1240 0xc00b0b1270 0xc00b0b12a0]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc009461f00 0xc009461f30 0xc009461f60]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc001ed3d20 0xc001ed3e10 0xc001ed3ec0]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc001e98030 0xc001e980e0 0xc001e98170]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc00c2b2eb0 0xc00c2b2ee0 0xc00c2b2f10]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc00c2b2f60 0xc00c2b2f90 0xc00c2b2fc0]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc00aca4da0 0xc00aca4dd0 0xc00aca4e00]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc001edecb0 0xc001eded00 0xc001ededf0]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc00abe0620 0xc00abe0650 0xc00abe0680]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc019e94df0 0xc019e94e20 0xc019e94e50]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        console.log('[0xc001e59270 0xc001e592d0 0xc001e59380]'); // 用户最新报告的3条内存地址 - 应该被过滤
+        // console.error('错误日志 - 这行应错误显示'); // 已注释，避免产生错误日志
+        console.log('正常日志内容'); // 应该显示
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>数据资源智能治理平台</title>
+    <link rel="icon" id="favicon" type="image/png" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%234f46e5'/%3E%3Ctext x='16' y='22' font-size='18' fill='white' text-anchor='middle' font-family='Arial'%3E%E6%95%B0%3C/text%3E%3C/svg%3E" />
+    <script type="module" crossorigin src="./assets/main-CKu08RVZ.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/main-Dn3ib_mf.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
